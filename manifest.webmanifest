@@ -1,0 +1,9 @@
+{
+  "name": "勤務・支給記録",
+  "short_name": "勤務記録",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f5f7",
+  "theme_color": "#222222",
+  "lang": "ja"
+}

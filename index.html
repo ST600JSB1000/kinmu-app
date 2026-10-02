@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#222222">
+<link rel="manifest" href="manifest.webmanifest">
+<title>勤務・支給記録</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#f4f5f7;color:#222}
+header{background:#fff;padding:14px 16px;position:sticky;top:0;z-index:5;border-bottom:1px solid #ddd}
+h1{font-size:20px;margin:0 0 10px}
+.nav{display:flex;gap:8px;align-items:center}
+button{border:0;border-radius:10px;padding:10px 13px;background:#222;color:#fff;font-size:14px}
+button.secondary{background:#e9eaed;color:#222}
+button.danger{background:#c62828}
+.month{font-weight:700;font-size:18px;flex:1;text-align:center}
+main{max-width:820px;margin:auto;padding:12px}
+.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px #0001}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.dow{text-align:center;font-size:12px;color:#777;padding:5px}
+.day{min-height:74px;background:#f8f8f8;border-radius:8px;padding:6px;font-size:13px;cursor:pointer}
+.day.empty{background:transparent}
+.day.today{outline:2px solid #222}
+.day.selected{background:#e8f0ff}
+.day b{display:block;font-size:14px;margin-bottom:4px}
+.dot{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:12px;color:#666;display:block;margin-bottom:4px}
+input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid #ccc;border-radius:9px;background:#fff}
+textarea{min-height:65px;resize:vertical}
+.full{grid-column:1/-1}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.listrow{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eee}
+.listrow:last-child{border-bottom:0}
+.small{font-size:12px;color:#666}
+.badge{display:inline-block;background:#f0f1f3;border-radius:20px;padding:7px 10px;font-size:13px;margin:2px}
+.received{font-weight:700}
+.unreceived{font-weight:700}
+.totalbox{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 12px}
+.total{background:#f5f6f8;border-radius:10px;padding:10px;text-align:center}
+.total .label{font-size:11px;color:#666}
+.total .num{font-size:18px;font-weight:700;margin-top:3px}
+.notice{font-size:12px;color:#666;line-height:1.6}
+@media(max-width:520px){
+ .formgrid{grid-template-columns:1fr}.full{grid-column:auto}
+ .day{min-height:64px;padding:5px}
+ .dot{font-size:9px}
+ .totalbox{grid-template-columns:1fr 1fr}
+ .totalbox .total:last-child{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>勤務・支給記録</h1>
+  <div class="nav">
+    <button class="secondary" onclick="moveMonth(-1)">‹</button>
+    <div id="monthTitle" class="month"></div>
+    <button class="secondary" onclick="moveMonth(1)">›</button>
+  </div>
+</header>
+
+<main>
+<section class="card">
+  <div class="calendar" id="calendar"></div>
+</section>
+
+<section class="card">
+  <h2 style="font-size:17px;margin:0 0 12px">勤務を登録</h2>
+  <div class="formgrid">
+    <div>
+      <label>日付</label>
+      <input id="date" type="date">
+    </div>
+    <div>
+      <label>メンバー</label>
+      <select id="person"></select>
+    </div>
+    <div>
+      <label>開始時間</label>
+      <input id="start" type="time" value="08:00">
+    </div>
+    <div>
+      <label>金額</label>
+      <select id="amount">
+        <option value="10000">1万円</option>
+        <option value="15000">1.5万円</option>
+        <option value="20000">2万円</option>
+        <option value="30000">3万円</option>
+      </select>
+    </div>
+    <div>
+      <label>受領状況</label>
+      <select id="status">
+        <option value="unreceived">未受領</option>
+        <option value="received">受領済</option>
+      </select>
+    </div>
+    <div class="full">
+      <label>備考</label>
+      <textarea id="note" placeholder="必要なら入力"></textarea>
+    </div>
+  </div>
+  <div class="actions">
+    <button onclick="saveRecord()">登録する</button>
+    <button class="secondary" onclick="clearForm()">入力クリア</button>
+  </div>
+</section>
+
+<section class="card">
+  <h2 id="selectedTitle" style="font-size:17px;margin:0 0 8px"></h2>
+  <div id="dayRecords"></div>
+</section>
+
+<section class="card">
+  <h2 style="font-size:17px;margin:0 0 8px">今月のメンバー別集計</h2>
+  <div id="monthlySummary"></div>
+</section>
+
+<section class="card">
+  <h2 style="font-size:17px;margin:0 0 8px">年間集計</h2>
+  <div class="formgrid">
+    <div>
+      <label>集計年</label>
+      <input id="year" type="number" min="2000" max="2100">
+    </div>
+  </div>
+  <div id="annualSummary" style="margin-top:10px"></div>
+</section>
+
+<section class="card">
+  <h2 style="font-size:17px;margin:0 0 8px">メンバー管理</h2>
+  <div class="formgrid">
+    <div class="full">
+      <label>新しいメンバー名</label>
+      <input id="newPerson" placeholder="例：佐藤">
+    </div>
+  </div>
+  <div class="actions"><button onclick="addPerson()">メンバーを追加</button></div>
+  <div id="peopleList"></div>
+</section>
+
+<section class="card">
+  <p class="notice">
+    データはこのブラウザの端末内に保存する試作版です。<br>
+    金額は1万円・1.5万円・2万円・3万円から選択できます。<br>
+    「受領済」「未受領」は登録後も日ごとの記録から確認できます。
+  </p>
+</section>
+</main>
+
+<script>
+const KEY="work-record-v2";
+const defaultPeople=["山本","木村","宮本","松原","長谷川","野口","春木"];
+let data=JSON.parse(localStorage.getItem(KEY)||'null');
+if(!data){
+  data={people:defaultPeople.slice(),records:[]};
+}
+let viewDate=new Date();
+let selectedDate=iso(new Date());
+
+function iso(d){return d.toISOString().slice(0,10)}
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function fmtDate(s){
+  const d=new Date(s+"T00:00:00");
+  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+}
+function yen(n){return Number(n||0).toLocaleString("ja-JP")+"円"}
+function mins(t){
+  if(!t)return 0;
+  let [h,m]=t.split(":").map(Number);
+  return h*60+m;
+}
+function renderPeople(){
+  person.innerHTML=data.people.map(p=>`<option>${esc(p)}</option>`).join("");
+  peopleList.innerHTML=data.people.map((p,i)=>
+    `<div class="listrow"><span>${esc(p)}</span><button class="danger" onclick="removePerson(${i})">削除</button></div>`
+  ).join("");
+}
+function addPerson(){
+  const p=newPerson.value.trim();
+  if(!p)return;
+  if(!data.people.includes(p))data.people.push(p);
+  newPerson.value="";
+  save();renderPeople();
+}
+function removePerson(i){
+  const p=data.people[i];
+  if(data.records.some(r=>r.person===p)){
+    alert("このメンバーには勤務記録があります。先に記録を削除してください。");
+    return;
+  }
+  data.people.splice(i,1);save();renderPeople();renderAll();
+}
+function moveMonth(n){
+  viewDate.setMonth(viewDate.getMonth()+n);
+  renderCalendar();renderMonthly();
+}
+function renderCalendar(){
+  const y=viewDate.getFullYear(),m=viewDate.getMonth();
+  monthTitle.textContent=`${y}年${m+1}月`;
+  const first=new Date(y,m,1),last=new Date(y,m+1,0);
+  let out=["日","月","火","水","木","金","土"].map(x=>`<div class="dow">${x}</div>`).join("");
+  for(let i=0;i<first.getDay();i++)out+=`<div class="day empty"></div>`;
+  for(let d=1;d<=last.getDate();d++){
+    const s=iso(new Date(y,m,d));
+    const rs=data.records.filter(r=>r.date===s);
+    const sel=s===selectedDate?" selected":"";
+    const today=s===iso(new Date())?" today":"";
+    const dots=rs.slice(0,3).map(r=>
+      `<div class="dot">${esc(r.person)} ${r.start} ${yen(r.amount).replace("円","")}${r.status==="received"?" ✓":" 未"}</div>`
+    ).join("");
+    out+=`<div class="day${sel}${today}" onclick="selectDate('${s}')"><b>${d}</b>${dots}</div>`;
+  }
+  calendar.innerHTML=out;
+}
+function selectDate(s){
+  selectedDate=s;
+  date.value=s;
+  renderCalendar();
+  renderDay();
+}
+function clearForm(){
+  date.value=selectedDate;
+  start.value="08:00";
+  amount.value="10000";
+  status.value="unreceived";
+  note.value="";
+}
+function saveRecord(){
+  const r={
+    id:Date.now(),
+    date:date.value,
+    person:person.value,
+    start:start.value,
+    amount:Number(amount.value),
+    status:status.value,
+    note:note.value.trim()
+  };
+  if(!r.date||!r.person||!r.start){
+    alert("日付・メンバー・開始時間を入力してください。");
+    return;
+  }
+  data.records.push(r);
+  selectedDate=r.date;
+  save();
+  renderAll();
+  renderDay();
+}
+function delRecord(id){
+  if(!confirm("この記録を削除しますか？"))return;
+  data.records=data.records.filter(r=>r.id!==id);
+  save();renderAll();renderDay();
+}
+function renderDay(){
+  selectedTitle.textContent=`${fmtDate(selectedDate)} の勤務`;
+  const rs=data.records.filter(r=>r.date===selectedDate);
+  if(!rs.length){
+    dayRecords.innerHTML='<div class="small">まだ登録されていません。</div>';
+    return;
+  }
+  dayRecords.innerHTML=rs.map(r=>
+    `<div class="listrow">
+      <div>
+        <b>${esc(r.person)}</b><br>
+        <span class="small">
+          開始 ${r.start}　${yen(r.amount)}　
+          <span class="${r.status==="received"?"received":"unreceived"}">${r.status==="received"?"受領済":"未受領"}</span>
+          ${r.note?"　"+esc(r.note):""}
+        </span>
+      </div>
+      <button class="danger" onclick="delRecord(${r.id})">削除</button>
+    </div>`
+  ).join("");
+}
+function summaryFor(records){
+  return data.people.map(p=>{
+    const a=records.filter(r=>r.person===p);
+    const total=a.reduce((s,r)=>s+Number(r.amount||0),0);
+    const received=a.filter(r=>r.status==="received").reduce((s,r)=>s+Number(r.amount||0),0);
+    const unreceived=total-received;
+    return {p,count:a.length,total,received,unreceived};
+  });
+}
+function renderMonthly(){
+  const y=viewDate.getFullYear(),m=viewDate.getMonth();
+  const rs=data.records.filter(r=>{
+    const d=new Date(r.date+"T00:00:00");
+    return d.getFullYear()===y&&d.getMonth()===m;
+  });
+  const sums=summaryFor(rs);
+  const all=sums.reduce((a,x)=>({count:a.count+x.count,total:a.total+x.total,received:a.received+x.received,unreceived:a.unreceived+x.unreceived}),{count:0,total:0,received:0,unreceived:0});
+  let out=`<div class="totalbox">
+    <div class="total"><div class="label">勤務件数</div><div class="num">${all.count}</div></div>
+    <div class="total"><div class="label">受領済</div><div class="num">${yen(all.received)}</div></div>
+    <div class="total"><div class="label">未受領</div><div class="num">${yen(all.unreceived)}</div></div>
+  </div>`;
+  out+=sums.map(x=>`<div class="listrow">
+    <span><b>${esc(x.p)}</b><br><span class="small">${x.count}件　合計 ${yen(x.total)}</span></span>
+    <span class="small">受領済 <b>${yen(x.received)}</b><br>未受領 <b>${yen(x.unreceived)}</b></span>
+  </div>`).join("");
+  monthlySummary.innerHTML=out;
+}
+function renderAnnual(){
+  const y=Number(year.value);
+  const rs=data.records.filter(r=>new Date(r.date+"T00:00:00").getFullYear()===y);
+  const sums=summaryFor(rs);
+  const all=sums.reduce((a,x)=>({count:a.count+x.count,total:a.total+x.total,received:a.received+x.received,unreceived:a.unreceived+x.unreceived}),{count:0,total:0,received:0,unreceived:0});
+  let out=`<div class="totalbox">
+    <div class="total"><div class="label">${y}年 件数</div><div class="num">${all.count}</div></div>
+    <div class="total"><div class="label">受領済合計</div><div class="num">${yen(all.received)}</div></div>
+    <div class="total"><div class="label">未受領合計</div><div class="num">${yen(all.unreceived)}</div></div>
+  </div>`;
+  out+=sums.map(x=>`<div class="listrow">
+    <span><b>${esc(x.p)}</b><br><span class="small">${x.count}件　年間合計 ${yen(x.total)}</span></span>
+    <span class="small">受領済 <b>${yen(x.received)}</b><br>未受領 <b>${yen(x.unreceived)}</b></span>
+  </div>`).join("");
+  annualSummary.innerHTML=out;
+}
+function renderAll(){
+  renderPeople();renderCalendar();renderDay();renderMonthly();renderAnnual();
+}
+function esc(s){
+  return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+date.value=selectedDate;
+year.value=viewDate.getFullYear();
+year.addEventListener("input",renderAnnual);
+renderAll();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
+}
+</script>
+</body>
+</html>
